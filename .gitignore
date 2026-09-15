@@ -1,0 +1,30 @@
+# Dependencias
+node_modules/
+.pnp/
+.pnp.js
+
+# Archivos de entorno (IMPORTANTÍSIMO - no subir contraseñas)
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporales
+*.tmp
+*.temp

@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIOS Y ROLES
+// ============================================
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(150)
+  role         String   @default("DRIVER")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  driver       Driver?
+
+  @@map("users")
+}
+
+// ============================================
+// VEHÍCULOS
+// ============================================
+model Vehicle {
+  id               Int            @id @default(autoincrement())
+  plate            String         @unique @db.VarChar(10)
+  brand            String         @db.VarChar(50)
+  model            String         @db.VarChar(50)
+  year             Int?
+  fuelType         FuelType       @map("fuel_type")
+  currentKm        Int            @default(0) @map("current_km")
+  chipCode         String?        @map("chip_code") @db.VarChar(50)
+  soatExpiry       DateTime?      @map("soat_expiry") @db.Date
+  tecnoExpiry      DateTime?      @map("tecno_expiry") @db.Date
+  insuranceExpiry  DateTime?      @map("insurance_expiry") @db.Date
+  status           VehicleStatus  @default(OPERATIVO)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  services         Service[]
+  checklists       Checklist[]
+  fuelLogs         FuelLog[]
+
+  @@map("vehicles")
+}
+
+enum FuelType {
+  ACPM
+  CORRIENTE
+  EXTRA
+  GAS
+}
+
+enum VehicleStatus {
+  OPERATIVO
+  REVISAR
+  TALLER
+  INACTIVO
+}
+
+// ============================================
+// CONDUCTORES
+// ============================================
+model Driver {
+  id              Int       @id @default(autoincrement())
+  fullName        String    @map("full_name") @db.VarChar(150)
+  document        String    @unique @db.VarChar(20)
+  licenseNumber   String?   @map("license_number") @db.VarChar(30)
+  licenseCategory String?   @map("license_category") @db.VarChar(5)
+  licenseExpiry   DateTime? @map("license_expiry") @db.Date
+  phone           String?   @db.VarChar(20)
+  active          Boolean   @default(true)
+  userId          Int?      @unique @map("user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user            User?     @relation(fields: [userId], references: [id])
+  services        Service[]
+  checklists      Checklist[]
+
+  @@map("drivers")
+}
+
+// ============================================
+// AGENDA SEMANAL (GIL-F-034)
+// ============================================
+model Service {
+  id             Int           @id @default(autoincrement())
+  serviceDate    DateTime      @map("service_date") @db.Date
+  startTime      String        @map("start_time") @db.VarChar(5)
+  endTime        String?       @map("end_time") @db.VarChar(5)
+  vehicleId      Int           @map("vehicle_id")
+  driverId       Int           @map("driver_id")
+  activityType   ActivityType  @map("activity_type")
+  title          String        @db.VarChar(200)
+  destination    String?       @db.VarChar(255)
+  kmStart        Int?          @map("km_start")
+  kmEnd          Int?          @map("km_end")
+  requester      String?       @db.VarChar(150)
+  status         ServiceStatus @default(PROGRAMADO)
+  weekNumber     Int           @map("week_number")
+  year           Int
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id])
+  driver         Driver        @relation(fields: [driverId], references: [id])
+
+  @@index([year, weekNumber])
+  @@index([serviceDate])
+  @@map("services")
+}
+
+enum ActivityType {
+  INTERNA
+  EXTERNA
+  PERSONAL
+  MANTENIMIENTO
+  URGENCIA
+}
+
+enum ServiceStatus {
+  PROGRAMADO
+  EN_CURSO
+  COMPLETADO
+  CANCELADO
+}
+
+// ============================================
+// CHEQUEO PRE-MARCHA (GIL-F-035)
+// ============================================
+model Checklist {
+  id              Int       @id @default(autoincrement())
+  vehicleId       Int       @map("vehicle_id")
+  driverId        Int       @map("driver_id")
+  checklistDate   DateTime  @map("checklist_date") @db.Date
+  km              Int?
+  conformityScore Int       @map("conformity_score")
+  adminName       String    @map("admin_name") @db.VarChar(150)
+  driverName      String    @map("driver_name") @db.VarChar(150)
+  observations    String?   @db.Text
+  signature       String? 
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  vehicle         Vehicle   @relation(fields: [vehicleId], references: [id])
+  driver          Driver    @relation(fields: [driverId], references: [id])
+  items           ChecklistItem[]
+
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id          Int              @id @default(autoincrement())
+  checklistId Int              @map("checklist_id")
+  category    ChecklistCategory
+  itemName    String           @map("item_name") @db.VarChar(100)
+  status      CheckStatus
+  observation String?          @db.VarChar(500)
+
+  checklist   Checklist        @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_items")
+}
+
+enum ChecklistCategory {
+  DOCUMENTOS
+  DIRECCIONALES
+  LUCES
+  LIMPIABRISAS
+  FRENOS
+  LLANTAS
+  ESPEJOS
+  PITO
+  FLUIDOS
+  APOYA_CABEZAS
+  CINTURONES
+  MANTENIMIENTO
+  VENCIMIENTOS
+  EQUIPO_SEGURIDAD
+}
+
+enum CheckStatus {
+  SI
+  NO
+  NA
+}
+
+// ============================================
+// COMBUSTIBLE / DISTRACOM (GIL-F-066)
+// ============================================
+model FuelUpload {
+  id               Int       @id @default(autoincrement())
+  originalFilename String    @map("original_filename") @db.VarChar(255)
+  month            Int
+  year             Int
+  totalGallons     Decimal   @map("total_gallons") @db.Decimal(10, 2)
+  totalValue       Decimal   @map("total_value") @db.Decimal(15, 2)
+  recordsCount     Int       @map("records_count")
+  processedAt      DateTime  @default(now()) @map("processed_at")
+
+  logs             FuelLog[]
+
+  @@map("fuel_uploads")
+}
+
+model FuelLog {
+  id           Int       @id @default(autoincrement())
+  uploadId     Int?      @map("upload_id")
+  station      String    @db.VarChar(100)
+  ticketNumber String?   @map("ticket_number") @db.VarChar(50)
+  fuelDate     DateTime  @map("fuel_date") @db.Date
+  fuelTime     String?   @map("fuel_time") @db.VarChar(8)
+  vehicleId    Int       @map("vehicle_id")
+  km           Int?
+  product      FuelType
+  gallons      Decimal   @db.Decimal(10, 4)
+  unitPrice    Decimal?  @map("unit_price") @db.Decimal(10, 2)
+  totalValue   Decimal   @map("total_value") @db.Decimal(15, 2)
+  driverName   String?   @map("driver_name") @db.VarChar(150)
+  dependency   String?   @db.VarChar(150)
+  observations String?   @db.VarChar(500)
+  uniqueKey    String    @unique @map("unique_key") @db.VarChar(64) // <-- CAMBIO CLAVE AQUÍ
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  vehicle      Vehicle   @relation(fields: [vehicleId], references: [id])
+  upload       FuelUpload? @relation(fields: [uploadId], references: [id])
+
+  @@index([fuelDate])
+  @@index([vehicleId])
+  @@index([uniqueKey]) // <-- ÍNDICE PARA BÚSQUEDA RÁPIDA
+
+  @@map("fuel_logs")
+}
